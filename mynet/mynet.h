@@ -16,4 +16,14 @@
 int init_tcpserver(in_port_t myport, int backlog);
 int init_tcpclient(char *servername, in_port_t serverport);
 void exit_errmesg(char *errmesg);
+int analyze_header( char *header );
+void create_packet(int type, char *message );
+
+/* メッセージ情報管理 */
+struct  idobata_packet{
+  char header[4];   /* パケットのヘッダ部(4バイト) */
+  char sep;         /* セパレータ(空白、またはゼロ) */
+  char data[];      /* データ部分(メッセージ本体) */
+};
+
 #endif  /* MYNET_H_ */
