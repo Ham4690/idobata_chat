@@ -1,15 +1,16 @@
 #
-# Makefile for chat_server and chat_client
+# Makefile for idobata_chat
 #
-MYLIBDIR=../netlib
+MYLIBDIR=../mynet
 MYLIB=-lmynet
 CFLAGS=-I${MYLIBDIR} -L${MYLIBDIR}
-OBJS=chat.o chat_server.o chat_client.o chat_util.o chat_common.o
+#OBJS=idobata_chat.o idobata_server.o idobata_client.o idobata_util.o
+OBJS=idobata_chat.o 
 
-all:chat 
+all:idobata
 
-chat : ${OBJS}
+idobata : ${OBJS}
 	${CC} ${CFLAGS} -o $@ $^ ${MYLIB}
 
 clean:
-	${RM} *.o chat *~
+	${RM} *.o idobata *~
