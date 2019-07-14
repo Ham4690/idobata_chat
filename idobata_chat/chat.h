@@ -6,10 +6,10 @@
 #include "mynet.h"
 
 /* サーバメインルーチン */
-void chat_server(int port_number, int n_client);
+void idobata_chat_server(int port_number, int n_client);
 
 /* クライアントメインルーチン */
-void chat_client(char* servername, int port_number);
+void idobata_chat_client(char* servername, int port_number);
 
 /* クライアントの初期化 */
 void init_client(int sock_listen, int n_client);

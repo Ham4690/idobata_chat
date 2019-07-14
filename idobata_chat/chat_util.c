@@ -1,33 +1,8 @@
-/*
-作成にあたって工夫:
-・各クライアントがそれぞれexitと入力すれば終了できるようにした
-・サーバーが何かの原因で終了した際にクライアント側に"server error"
-というメッセージが出るようにした.
-・自分のその他のクライアントでメッセージの表示を区別し自分の発言と
-その他をみてわかりやすくした。
-・3人以上でも通信できるようにした。
-
-苦労した点
-プログラムが大きくなってきたのでどの部分が関係し合っているのか理解
-することが難しかった。
-リンクのエラーや定義されていないと行ったエラーの修正箇所を見つけるのが
-大変だった。
-
-起動時のコマンド
-server:
-~$./chat -S -p 50000 -c <繋ぎたい人数>
- ex:
-  ~$./chat -S -p 50000 -c 3
-
-client:
-~$./chat -C -s localhost -p 50000
-
-*/
-
 
 /*
   chat_util.c
 */
+
 #include "mynet.h"
 #include "chat.h"
 #include <stdlib.h>
@@ -57,7 +32,24 @@ static void start_chat();
 static void client_delete();
 static char *chop_nl(char *s);
 
-void init_client(int sock_listen, int n_client)
+// void init_client(int sock_listen, int n_client)
+// {
+//   N_client = n_client;
+
+//   /* クライアント情報の保存用構造体の初期化 */
+//   if( (Client=(client_info *)malloc(N_client*sizeof(client_info)))==NULL ){
+//     exit_errmesg("malloc()");
+//   }
+
+  
+
+//   /* クライアントのログイン処理 */
+//   Max_sd = client_login(sock_listen);
+
+// }
+
+
+void init_client(int sock_listen, int n_client , char *name)
 {
   N_client = n_client;
 
@@ -66,10 +58,8 @@ void init_client(int sock_listen, int n_client)
     exit_errmesg("malloc()");
   }
 
-  
-
   /* クライアントのログイン処理 */
-  Max_sd = client_login(sock_listen);
+  Max_sd = client_login(sock_listen,);
 
 }
 
@@ -87,7 +77,7 @@ void communication_loop()
 static int client_login(int sock_listen)
 {
   int client_id,sock_accepted;
-  static char prompt[]="Input your name: ";
+  // static char prompt[]="Input your name: ";
   char loginname[NAMELENGTH];
   int strsize;
 
@@ -97,12 +87,14 @@ static int client_login(int sock_listen)
     printf("Client[%d] connected.\n",client_id);
 
     /* ログインプロンプトを送信 */
-    Send(sock_accepted, prompt, strlen(prompt), 0);
+    // Send(sock_accepted, prompt, strlen(prompt), 0);
 
     /* ログイン名を受信 */
-    strsize = Recv(sock_accepted, loginname, NAMELENGTH-1, 0);
+    // strsize = Recv(sock_accepted, loginname, NAMELENGTH-1, 0);
     loginname[strsize] = '\0';
-    chop_nl(loginname);
+
+    // ユーザ名はプログラム実行時に登録するので入力してもらう必要がない
+    // chop_nl(loginname);
 
     /* ユーザ情報を保存 */
     Client[client_id].sock = sock_accepted;
@@ -363,15 +355,16 @@ static void recv_msg()
   }
 }
 
-static char *chop_nl(char *s)
-{
-  int len;
-  len = strlen(s);
-  if( s[len-1] == '\n' ){
-    s[len-1] = '\0';
-  }
-  return(s);
-}
+// idobataでは必要ない ユーザ名は実行時に与えられる
+// static char *chop_nl(char *s)
+// {
+//   int len;
+//   len = strlen(s);
+//   if( s[len-1] == '\n' ){
+//     s[len-1] = '\0';
+//   }
+//   return(s);
+// }
 
 /*
 終了クライアントの仕分け作業

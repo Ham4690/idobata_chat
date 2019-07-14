@@ -1,6 +1,13 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
+// #include "mynet.h"
+
+#define MSGBUF_SIZE 512
+
+static char Buffer[MSGBUF_SIZE];
+
 
 void swp(int *x,int *y){
     int swp;
@@ -9,27 +16,37 @@ void swp(int *x,int *y){
     *y = swp;
 }
 
+void create_packet(int type, char *message )
+{
+    char *keep_msg;
+    keep_msg = (char *)malloc((strlen(message)+5) * sizeof(char));
+
+    switch( type ){
+    case 1:
+    strcpy(keep_msg,"HELO ");
+    strncat(keep_msg,message,strlen(message));
+    snprintf( message, MSGBUF_SIZE , "%s",keep_msg );
+    free(keep_msg);
+    break;
+    case 2:
+    snprintf( Buffer, MSGBUF_SIZE, "JOIN %s", message );
+    break;
+    default:
+    /* Undefined packet type */
+    break;
+    }
+
+}
+
 int main(int argc, char* argv[])
 {
     char c[100];
-    char *p;
-    int x = 2;
-    int y = 3;
-    int *px,*py;
-    printf("x,y=%d,%d\n",x,y);
-    swp(&x,&y);
-    printf("x,y=%d,%d\n",x,y);
-    // printf("%s",argv[1]);
-    // printf(" %d\n",strlen(argv[1]));
-    // if(strlen(argv[1]) < 4){
-    //     printf("error\n");
-    // }else{
-    //     printf("ok\n");
-    // }
-    // sprintf(c,"%s",argv[1]);
-    // p = c;
-    // printf("%s\n",p);
-    // printf("%d\n",strlen(p));
+
+    strcpy(c,"test");
+    // printf("%lu\n",strlen(c));
+    create_packet(1,c);
+    printf("%s\n",c);
+
     return 0;
 }
 

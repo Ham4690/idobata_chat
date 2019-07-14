@@ -1,0 +1,27 @@
+0
+HELO
+----
+1
+count = 1 
+HELO
+----
+2
+HELO
+----
+3
+count = 2 
+HELO
+----
+4
+HELO
+----
+5
+count = 3 
+HELO
+----
+6
+HELO
+7
+----
+Time out!
+

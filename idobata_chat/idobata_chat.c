@@ -9,113 +9,120 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 
+
+/////
+#include <signal.h>
+#include <fcntl.h>
+#include <errno.h>
+
+#ifdef __CYGWIN__
+#include <sys/ioctl.h>
+#endif
+/////
+
+
 #define SERVER_LEN 256     /* サーバ名格納用バッファサイズ */
-#define DEFAULT_PORT 50001 /* ポート番号既定値 */
-#define NAMELENGTH 20 //username 長さ制限
+// #define DEFAULT_PORT 50001 /* ポート番号既定値 */
+#define NAMELENGTH 15//username 長さ制限
 #define S_BUFSIZE 512
 #define R_BUFSIZE 512
-#define TIMEOUT_SEC 10 
+#define TIMEOUT_SEC 2 
 
-#define DEFAULT_MODE 'C'   /* 省略時はクライアント */
+static void action_timeout(int signo);
 
 void argc_error_check(int arg_num,char *argv[],int *port);
 void user_name_check(char *input_name,char *name);
+void Select_mode(char mode);
+void send_HELO(int sock,struct sockaddr_in broadcast_adrs);
+
+static void action_received(int signo);
+static void show_adrsinfo(struct sockaddr_in *adrs_in);
 
 int main(int argc, char *argv[])
 {
 
-  int port_number=DEFAULT_PORT;
+  int port_number = PORT;
   char servername[SERVER_LEN] = "localhost";
-  char mode = DEFAULT_MODE;
   char name[NAMELENGTH];
 
   struct sockaddr_in broadcast_adrs ;
+  struct sockaddr_in server_adrs;
   struct sockaddr_in from_adrs;
   socklen_t from_len;
-
   int sock;
+
+  struct sigaction action;
+    
   int broadcast_sw=1;
   fd_set mask, readfds;
   struct timeval timeout;
 
   char s_buf[S_BUFSIZE], r_buf[R_BUFSIZE];
   int strsize;
-  int count = 1;
+  int count = 0;
+  char mode;
+
+/////error_check
 
   argc_error_check(argc,argv,&port_number);
   user_name_check(argv[1],name);
-/////
+
+  //サーバの情報準備
+  set_sockaddr_in(&broadcast_adrs,servername,(in_port_t)port_number);
+  sock = init_udpclient();
+
+  /* ソケットをブロードキャスト可能にする */
   if(setsockopt(sock, SOL_SOCKET, SO_BROADCAST, 
             (void *)&broadcast_sw, sizeof(broadcast_sw)) == -1){
     exit_errmesg("setsockopt()");
   }
 
-  set_sockaddr_in_broadcast(&broadcast_adrs,(in_port_t)port_number); 
-  sock = init_udpclient();
-                                          
-  /* ビットマスクの準備 */
-  FD_ZERO(&mask);               
-  FD_SET(sock, &mask);
-
-  /* キーボードから文字列を入力する */
-  s_buf[0]="m" ;
-  strsize = strlen(s_buf);
-
-
-  /* 文字列をサーバに送信する */
-  Sendto(sock, s_buf, strsize, 0, 
-	(struct sockaddr *)&broadcast_adrs, sizeof(broadcast_adrs) );
-
-  readfds = mask;
-  timeout.tv_sec = TIMEOUT_SEC;
-  timeout.tv_usec = 0;
- 
-  /* サーバから文字列を受信して表示 */
-  for(;;){
-    /* 受信データの有無をチェック */
-     readfds = mask;
-     timeout.tv_sec = TIMEOUT_SEC;
-     timeout.tv_usec = 0; 
-
-    if( select( sock+1, &readfds, NULL, NULL,&timeout)==0 ){
-        // printf("Time out.\n");
-        // break;
-       if(count >= 3){
-         printf("Time out.\n");
-         break;
-       }
-       printf("count_time = %d\n",count++);
-       Sendto(sock, s_buf, strsize, 0, 
-       (struct sockaddr *)&broadcast_adrs, sizeof(broadcast_adrs) );     
-       memcpy(&readfds,&mask,sizeof(fd_set));
-    }
-
-    // from_len = sizeof(from_adrs);
-    // strsize = Recvfrom(sock, r_buf, R_BUFSIZE-1, 0,
-		//      (struct sockaddr *)&from_adrs, &from_len);
-    // r_buf[strsize] = '\0';
-    // printf("[%s] %s",inet_ntoa(from_adrs.sin_addr), r_buf);
+  //シグナルパンドラの設定
+  action.sa_handler = action_timeout;
+  if(sigfillset(&action.sa_mask) == -1){
+    exit_errmesg("sigfillset()");
+  }
+  action.sa_flags = 0;
+  if(sigaction(SIGALRM,&action,NULL) == -1){
+    exit_errmesg("sigaction()");
   }
 
-  close(sock);             /* ソケットを閉じる */
-/////
+  //"HELO"パケットを送信
+  send_HELO(sock,broadcast_adrs);
 
-  printf("port_num = %d\n",port_number);
-  printf("user_name = %s\n",name);
+  /* 文字列をサーバに送信する */
+  //time out set
+  alarm(TIMEOUT_SEC);
+ 
+  for(;;){
+    from_len = sizeof(from_adrs);
+    if((strsize=recvfrom(sock,r_buf,R_BUFSIZE-1,0,(struct sockaddr *)&from_adrs,&from_len)) == -1){
+      if(errno == EINTR){
+        if(count == 3){
+          mode = 'S';
+          break;
+        }
+        count +=1;
+        printf("Wait_count:%d\n",count);
 
-//   switch(mode){
+//HELOパケット再送
+        send_HELO(sock,broadcast_adrs);
+        alarm(TIMEOUT_SEC);
+      }
+      //HEREをチェック
+      //本当はHERE
+      // if(analyze_header(r_buf) == HERE){
+      //テストではechoなので送信と同じ文字にしている
+      if(analyze_header(r_buf) == HELLO){
+        mode = 'C';
+        break;
+      }
+    }
+  }
 
-//   case 'S':
-//     // chat_server(port_number, num_client);  /* サーバ部分ができたらコメントを外す */
-//     chat_server(port_number);  /* サーバ部分ができたらコメントを外す */
-//     break;
-//   case 'C':
-//     chat_client(servername, port_number);
-//     break;
-
-//   }
-
-   exit(EXIT_SUCCESS);
+  Select_mode(mode);
+  close(sock);
+  exit(EXIT_FAILURE);
 }
 
 
@@ -127,7 +134,6 @@ void argc_error_check(int arg_num ,char *argv[],int *port){
 	  printf("Set the username as an argument.\n");
 	  exit(EXIT_FAILURE);
   }
-
   if(arg_num== 3){
   	*port=atoi(argv[2]);
   }
@@ -139,4 +145,31 @@ void user_name_check(char *input_name,char *name){
 	  exit(EXIT_FAILURE);
   }
   sprintf(name,"%s",input_name);
+}
+
+void Select_mode(char mode){
+  switch(mode){
+  case 'S':
+  // {サーバーの関数へ}
+    printf("You are Server\n");
+    break;
+  case 'C':
+  // {クライアントの関数へ}
+    printf("You are Client\n");
+    break;
+  default:
+    printf("switch():error\n");
+  }
+}
+
+void send_HELO(int sock,struct sockaddr_in broadcast_adrs){
+  char HELO_packet[5];
+  int strsize;
+  create_packet(HELLO,HELO_packet);
+  strsize = strlen(HELO_packet);
+  Sendto(sock, HELO_packet, strsize, 0,(struct sockaddr *)&broadcast_adrs, sizeof(broadcast_adrs) );
+}
+
+static void action_timeout(int signo){
+  return;
 }
