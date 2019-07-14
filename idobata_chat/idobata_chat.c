@@ -24,7 +24,7 @@
 #define SERVER_LEN 256     /* サーバ名格納用バッファサイズ */
 // #define DEFAULT_PORT 50001 /* ポート番号既定値 */
 #define NAMELENGTH 15//username 長さ制限
-#define S_BUFSIZE 512
+#define BUFSIZE 5
 #define R_BUFSIZE 512
 #define TIMEOUT_SEC 2 
 
@@ -34,6 +34,7 @@ void argc_error_check(int arg_num,char *argv[],int *port);
 void user_name_check(char *input_name,char *name);
 void Select_mode(char mode);
 void send_HELO(int sock,struct sockaddr_in broadcast_adrs);
+char check_HERE(int sock,struct sockaddr_in broadcast_adrs);
 
 static void action_received(int signo);
 static void show_adrsinfo(struct sockaddr_in *adrs_in);
@@ -54,10 +55,9 @@ int main(int argc, char *argv[])
   struct sigaction action;
     
   int broadcast_sw=1;
-  fd_set mask, readfds;
   struct timeval timeout;
 
-  char s_buf[S_BUFSIZE], r_buf[R_BUFSIZE];
+  char r_buf[R_BUFSIZE];
   int strsize;
   int count = 0;
   char mode;
@@ -90,35 +90,10 @@ int main(int argc, char *argv[])
   //"HELO"パケットを送信
   send_HELO(sock,broadcast_adrs);
 
-  /* 文字列をサーバに送信する */
-  //time out set
-  alarm(TIMEOUT_SEC);
- 
-  for(;;){
-    from_len = sizeof(from_adrs);
-    if((strsize=recvfrom(sock,r_buf,R_BUFSIZE-1,0,(struct sockaddr *)&from_adrs,&from_len)) == -1){
-      if(errno == EINTR){
-        if(count == 3){
-          mode = 'S';
-          break;
-        }
-        count +=1;
-        printf("Wait_count:%d\n",count);
 
-//HELOパケット再送
-        send_HELO(sock,broadcast_adrs);
-        alarm(TIMEOUT_SEC);
-      }
-      //HEREをチェック
-      //本当はHERE
-      // if(analyze_header(r_buf) == HERE){
-      //テストではechoなので送信と同じ文字にしている
-      if(analyze_header(r_buf) == HELLO){
-        mode = 'C';
-        break;
-      }
-    }
-  }
+  mode = check_HERE(sock,broadcast_adrs);
+
+
 
   Select_mode(mode);
   close(sock);
@@ -170,6 +145,44 @@ void send_HELO(int sock,struct sockaddr_in broadcast_adrs){
   Sendto(sock, HELO_packet, strsize, 0,(struct sockaddr *)&broadcast_adrs, sizeof(broadcast_adrs) );
 }
 
+char check_HERE(int sock,struct sockaddr_in broadcast_adrs){
+  struct sockaddr_in from_adrs;
+  socklen_t from_len;
+  int strsize;
+  int count = 0;
+  char r_buf[BUFSIZE];
+
+   //time out set
+  alarm(TIMEOUT_SEC);
+ 
+  for(;;){
+    from_len = sizeof(from_adrs);
+    if((strsize=recvfrom(sock,r_buf,BUFSIZE-1,0,(struct sockaddr *)&from_adrs,&from_len)) == -1){
+      if(errno == EINTR){
+        if(count == 3){
+          return 'S';
+        }
+        count +=1;
+        printf("Wait_count:%d\n",count);
+//HELOパケット再送
+        send_HELO(sock,broadcast_adrs);
+//タイマー再設定
+        alarm(TIMEOUT_SEC);
+      }
+
+      //HEREをチェック
+      //本当はHERE
+      // if(analyze_header(r_buf) == HERE){
+      //テストではechoなので送信と同じ文字にしている
+      if(analyze_header(r_buf) == HELLO){
+        return 'C';
+      }
+    }
+  }
+
+
+
+}
 static void action_timeout(int signo){
   return;
 }
