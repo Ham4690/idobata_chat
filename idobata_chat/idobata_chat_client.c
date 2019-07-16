@@ -52,37 +52,48 @@ void idobata_chat_client(char* servername,int port_number,char *name)
     readfds = mask;
     select(sock+1,&readfds,NULL,NULL,NULL);
 
-// 自身のキーボードからの入力を監視
+//送信
+//自身のキーボード入力チェック
     if( FD_ISSET(0, &readfds) ){
-      /* キーボードから文字列を入力する */
       fgets(s_buf, S_BUFSIZE, stdin);
+      printf("fgets:%s\n",s_buf);
 
       //packet識別,送信
-      packet_check(s_buf,sock);
+//      packet_check(s_buf,sock);
 
-// //先頭タグの確認
-//       check_msg = analyze_header(s_buf);
+//先頭タグの確認
+      check_msg = analyze_header(s_buf);
       
-//       if( check_msg == QUIT){
-//         //QUITメッセージをサーバに送る
-//         QUIT_msg_send(sock);
-//       }else{
-// //入力されたテキストが「QUIT」でなければそれを「POST 発言メッセージ」の形式でサーバに送信する。
-//         POST_msg_send(sock,s_buf);
-//       }
+      if( check_msg == QUIT){
+        //QUITメッセージをサーバに送る
+        QUIT_msg_send(sock);
+      }else{
+        //POSTメッセージ作成
+        POST_msg_send(sock,s_buf);
+      }
 
     }
 
-//「MESG 発言メッセージ」形式の メッセージを受信したら、その「発言メッセージ」を画面に表示する。
+//受信
     if( FD_ISSET(sock,&readfds ) ){
       // strsize = Recv(sock, r_buf, R_BUFSIZE-1, 0);
       //サーバが終了してたらエラー表示後、プログラムを終了する。
+      printf("Recv\n");
 
       //packet受信
-      strsize = Recv(sock,r_buf,R_BUFSIZE-1,0);
 
+      strsize = Recv(sock,r_buf,R_BUFSIZE-1,0);
+      printf("strsize:%d\n",strsize);
+      if(strsize == 0){
+        printf("\nserver error\n");
+        exit(1);
+      }
       //サーバが終了していないか確認
-      server_error_check(strsize);
+      // server_error_check(strsize);
+      printf("Recv_2\n");
+
+      printf("%s",r_buf);
+      fflush(stdout);
 
       //パケット識別、出力
       packet_check(r_buf,sock);
@@ -115,6 +126,7 @@ void POST_msg_send(int sock,char *s_buf){
   create_packet(POST,s_buf);
   strsize = strlen(s_buf);
   Send(sock, s_buf,strsize,0); 
+  printf("make msg:%s\n",s_buf);
 }
 
 void server_error_check(int strsize){
@@ -141,15 +153,17 @@ void POST_msg_display(char *r_buf){
 }
 
 void Input_msg(char *s_buf){
-  int Input_msg_check;  
+  int Input_msg_check = 1;  
   fgets(s_buf, S_BUFSIZE, stdin);
+
+  
 }
 
 void packet_check(char *msg,int sock){
   int packet_mode;
   //届いたmsgのタグ確認
   packet_mode = analyze_header(msg);
-
+  printf("packet_mode:%d\n",packet_mode);
   switch (packet_mode)
   {
   case MESSAGE: 

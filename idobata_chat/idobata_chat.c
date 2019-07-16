@@ -27,7 +27,7 @@
 #define NAMELENGTH 15//username 長さ制限
 #define BUFSIZE 5
 #define R_BUFSIZE 512
-#define TIMEOUT_SEC 2 
+#define TIMEOUT_SEC 1 
 
 static void action_timeout(int signo);
 
@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
   char servername[SERVER_LEN] = "localhost";
   char name[NAMELENGTH];
   struct sockaddr_in broadcast_adrs ;
+  struct idobata_packet *packet;
   int sock;
   char mode;
 
@@ -71,6 +72,8 @@ int main(int argc, char *argv[])
 
   //HELOパケット送信時のHEREパケットの受信確認
   mode = check_HERE(sock,broadcast_adrs);
+
+  printf("%c\n",mode);
 
   Select_mode(mode,servername,port_number,name);
   
@@ -123,19 +126,19 @@ void signal_handle_set(){
 
 void Select_mode(char mode,char *servername,int port_number,char *name){
   switch(mode){
-  case 'S':
-  // {サーバーの関数へ}
-    idobata_chat_sever(port_number);
-    printf("You are Server\n");
-    break;
-  case 'C':
-  // {クライアントの関数へ}
-    idobata_chat_client(servername,port_number,name);
+    case 'S':
+    // {サーバーの関数へ}
+      printf("You are Server\n");
+      idobata_chat_server(port_number);
+      break;
+    case 'C':
+    // {クライアントの関数へ}
+      idobata_chat_client(servername,port_number,name);
 
-    printf("You are Client\n");
-    break;
-  default:
-    printf("switch():error\n");
+      printf("You are Client\n");
+      break;
+    default:
+      printf("switch():error\n");
   }
 }
 
@@ -159,7 +162,6 @@ char check_HERE(int sock,struct sockaddr_in broadcast_adrs){
 
   //time out set
   alarm(TIMEOUT_SEC);
- 
   for(;;){
     from_len = sizeof(from_adrs);
     if((strsize=recvfrom(sock,r_buf,BUFSIZE-1,0,(struct sockaddr *)&from_adrs,&from_len)) == -1){
@@ -181,6 +183,7 @@ char check_HERE(int sock,struct sockaddr_in broadcast_adrs){
     }
   }
 }
+
 static void action_timeout(int signo){
   return;
 }

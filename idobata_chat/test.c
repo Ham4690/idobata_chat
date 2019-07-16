@@ -38,9 +38,20 @@ void create_packet(int type, char *message )
 
 }
 
+typedef struct user_info {
+char username[15];     /* ユーザ名 */
+int  sock;                     /* ソケット番号 */
+struct user_info *next;        /* 次のユーザ */
+} User_info;
+
+
 int main(int argc, char* argv[])
 {
     char c[100];
+
+    static User_info server = {"server", 0, NULL};  //アカウント管理用線形リストの先頭を指す.
+    static User_info *start = &server;
+    printf("%s",)
 
     strcpy(c,"test");
     // printf("%lu\n",strlen(c));
