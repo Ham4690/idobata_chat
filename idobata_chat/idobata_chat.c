@@ -1,8 +1,9 @@
 /*
   idobata_chat.c
 */
-
+#include "idobata.h"
 #include "mynet.h"
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/select.h>
@@ -32,9 +33,12 @@ static void action_timeout(int signo);
 
 void argc_error_check(int arg_num,char *argv[],int *port);
 void user_name_check(char *input_name,char *name);
-void Select_mode(char mode);
-void send_HELO(int sock,struct sockaddr_in broadcast_adrs);
+void broadcast_enable(int sock);
+void signal_handle_set();
+void Select_mode(char mode,char *servername,int port_number,char *name);
+void HELO_msg_send(int sock,struct sockaddr_in broadcast_adrs);
 char check_HERE(int sock,struct sockaddr_in broadcast_adrs);
+
 
 static void action_received(int signo);
 static void show_adrsinfo(struct sockaddr_in *adrs_in);
@@ -45,59 +49,33 @@ int main(int argc, char *argv[])
   int port_number = PORT;
   char servername[SERVER_LEN] = "localhost";
   char name[NAMELENGTH];
-
   struct sockaddr_in broadcast_adrs ;
-  struct sockaddr_in server_adrs;
-  struct sockaddr_in from_adrs;
-  socklen_t from_len;
   int sock;
-
-  struct sigaction action;
-    
-  int broadcast_sw=1;
-  struct timeval timeout;
-
-  char r_buf[R_BUFSIZE];
-  int strsize;
-  int count = 0;
   char mode;
 
-/////error_check
-
+  //引数確認
   argc_error_check(argc,argv,&port_number);
+
+  //ユーザ名確認
   user_name_check(argv[1],name);
 
   //サーバの情報準備
   set_sockaddr_in(&broadcast_adrs,servername,(in_port_t)port_number);
   sock = init_udpclient();
 
-  /* ソケットをブロードキャスト可能にする */
-  if(setsockopt(sock, SOL_SOCKET, SO_BROADCAST, 
-            (void *)&broadcast_sw, sizeof(broadcast_sw)) == -1){
-    exit_errmesg("setsockopt()");
-  }
+  // ソケットをブロードキャスト可能にする 
+  broadcast_enable(sock);
 
   //シグナルパンドラの設定
-  action.sa_handler = action_timeout;
-  if(sigfillset(&action.sa_mask) == -1){
-    exit_errmesg("sigfillset()");
-  }
-  action.sa_flags = 0;
-  if(sigaction(SIGALRM,&action,NULL) == -1){
-    exit_errmesg("sigaction()");
-  }
+  signal_handle_set();
 
-  //"HELO"パケットを送信
-  send_HELO(sock,broadcast_adrs);
-
-
+  //HELOパケット送信時のHEREパケットの受信確認
   mode = check_HERE(sock,broadcast_adrs);
 
-
-
-  Select_mode(mode);
-  close(sock);
-  exit(EXIT_FAILURE);
+  Select_mode(mode,servername,port_number,name);
+  
+  close(sock); //プログラム完成時は削除
+  exit(EXIT_FAILURE); //プログラム完成時は削除
 }
 
 
@@ -122,14 +100,38 @@ void user_name_check(char *input_name,char *name){
   sprintf(name,"%s",input_name);
 }
 
-void Select_mode(char mode){
+void broadcast_enable(int sock){
+  int broadcast_sw=1;
+  if(setsockopt(sock, SOL_SOCKET, SO_BROADCAST, 
+            (void *)&broadcast_sw, sizeof(broadcast_sw)) == -1){
+    exit_errmesg("setsockopt()");
+  }
+}
+
+void signal_handle_set(){
+  struct sigaction action;
+
+  action.sa_handler = action_timeout;
+  if(sigfillset(&action.sa_mask) == -1){
+    exit_errmesg("sigfillset()");
+  }
+  action.sa_flags = 0;
+  if(sigaction(SIGALRM,&action,NULL) == -1){
+    exit_errmesg("sigaction()");
+  }
+}
+
+void Select_mode(char mode,char *servername,int port_number,char *name){
   switch(mode){
   case 'S':
   // {サーバーの関数へ}
+    idobata_chat_sever(port_number);
     printf("You are Server\n");
     break;
   case 'C':
   // {クライアントの関数へ}
+    idobata_chat_client(servername,port_number,name);
+
     printf("You are Client\n");
     break;
   default:
@@ -137,7 +139,7 @@ void Select_mode(char mode){
   }
 }
 
-void send_HELO(int sock,struct sockaddr_in broadcast_adrs){
+void HELO_msg_send(int sock,struct sockaddr_in broadcast_adrs){
   char HELO_packet[5];
   int strsize;
   create_packet(HELLO,HELO_packet);
@@ -151,8 +153,11 @@ char check_HERE(int sock,struct sockaddr_in broadcast_adrs){
   int strsize;
   int count = 0;
   char r_buf[BUFSIZE];
+  
+  //"HELO"パケットを送信
+  HELO_msg_send(sock,broadcast_adrs);
 
-   //time out set
+  //time out set
   alarm(TIMEOUT_SEC);
  
   for(;;){
@@ -164,24 +169,17 @@ char check_HERE(int sock,struct sockaddr_in broadcast_adrs){
         }
         count +=1;
         printf("Wait_count:%d\n",count);
-//HELOパケット再送
-        send_HELO(sock,broadcast_adrs);
-//タイマー再設定
+      //HELOパケット再送
+        HELO_msg_send(sock,broadcast_adrs);
+      //タイマー再設定
         alarm(TIMEOUT_SEC);
       }
-
       //HEREをチェック
-      //本当はHERE
-      // if(analyze_header(r_buf) == HERE){
-      //テストではechoなので送信と同じ文字にしている
-      if(analyze_header(r_buf) == HELLO){
+      if(analyze_header(r_buf) == HERE){
         return 'C';
       }
     }
   }
-
-
-
 }
 static void action_timeout(int signo){
   return;

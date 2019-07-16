@@ -6,7 +6,7 @@ MYLIBDIR=../mynet
  CFLAGS=-I${MYLIBDIR} -L${MYLIBDIR}
 # CFLAGS=-I${MYLIBDIR} 
 #OBJS=idobata_chat.o idobata_server.o idobata_client.o idobata_util.o
-OBJS=idobata_chat.o 
+OBJS=idobata_chat.o idobata_chat_client.o idobata_chat_server.o
 
 all:idobata
 

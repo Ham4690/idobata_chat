@@ -2,12 +2,12 @@
 #include "string.h"
 
 
-#define HELLO   1
-#define HERE    2
-#define JOIN    3
-#define POST    4
-#define MESSAGE 5
-#define QUIT    6
+// #define HELLO   1
+// #define HERE    2
+// #define JOIN    3
+// #define POST    4
+// #define MESSAGE 5
+// #define QUIT    6
 
 #define MSGBUF_SIZE 512
 
@@ -80,25 +80,45 @@ int analyze_header( char *header )
 void create_packet(int type, char *message )
 {
 
+  char *add_header;
+
   switch( type ){
   case HELLO:
-    snprintf( Buffer, MSGBUF_SIZE, "HELO" );
+    snprintf( message,4, "HELO");
     break;
+
   case HERE:
-    snprintf( Buffer, MSGBUF_SIZE, "HERE" );
+    snprintf( message,4, "HERE");
     break;
+
   case JOIN:
-    snprintf( Buffer, MSGBUF_SIZE, "JOIN %s", message );
+    add_header = (char *)malloc((strlen(message)+5) * sizeof(char));
+    strcpy(add_header,"JOIN ");
+    strncat(add_header,message,strlen(message));
+    snprintf( message, MSGBUF_SIZE , "%s",add_header);
+    free(add_header);
     break;
+
   case POST:
-    snprintf( Buffer, MSGBUF_SIZE, "POST %s", message );
+    add_header = (char *)malloc((strlen(message)+5) * sizeof(char));
+    strcpy(add_header,"POST ");
+    strncat(add_header,message,strlen(message));
+    snprintf( message, MSGBUF_SIZE , "%s",add_header);
+    free(add_header);
     break;
+ 
   case MESSAGE:
-    snprintf( Buffer, MSGBUF_SIZE, "MESG %s", message );
+    add_header = (char *)malloc((strlen(message)+5) * sizeof(char));
+    strcpy(add_header,"MESG ");
+    strncat(add_header,message,strlen(message));
+    snprintf( message, MSGBUF_SIZE , "%s",add_header);
+    free(add_header);
     break;
+ 
   case QUIT:
-    snprintf( Buffer, MSGBUF_SIZE, "QUIT" );
+    snprintf( message, MSGBUF_SIZE , "QUIT");
     break;
+ 
   default:
     /* Undefined packet type */
     break;
