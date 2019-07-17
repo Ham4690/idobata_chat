@@ -16,9 +16,12 @@ void QUIT_msg_send(int sock);
 void POST_msg_send(int sock,char *s_buf);
 void MESG_msg_display(char *r_buf);
 void POST_msg_display(char *r_buf);
+void LOGIN_msg_send(int sock);
+void Tag_remove_display(char *r_buf);
 void Input_msg(char *s_buf);
 void packet_check(char *r_buf,int sock);
 void server_error_check(int strsize);
+void output_tab(int num);
 
 
 void idobata_chat_client(char* servername,int port_number,char *name)
@@ -28,6 +31,7 @@ void idobata_chat_client(char* servername,int port_number,char *name)
   int strsize;
   int check_msg;
   fd_set mask, readfds;
+  struct timeval tv;
 
   /* サーバに接続する */
   sock = init_tcpclient(servername,port_number);
@@ -44,60 +48,72 @@ void idobata_chat_client(char* servername,int port_number,char *name)
   FD_ZERO(&mask);
   FD_SET(0, &mask);
   FD_SET(sock,&mask);
+  tv.tv_sec = 1;
+  tv.tv_usec = 0;
+
+  readfds = mask;
+  select(sock+1,&readfds,NULL,NULL,&tv);
+
+  LOGIN_msg_send(sock);
 
 // サーバと接続しているソケットを監視
   for(;;){
+
+    memset(r_buf,'\0',R_BUFSIZE);
+    memset(s_buf,'\0',S_BUFSIZE);
     /* 受信データの有無をチェック */
 
     readfds = mask;
-    select(sock+1,&readfds,NULL,NULL,NULL);
+    select(sock+1,&readfds,NULL,NULL,&tv);
 
 //送信
 //自身のキーボード入力チェック
-    if( FD_ISSET(0, &readfds) ){
+    if( FD_ISSET(0, &readfds)){
       fgets(s_buf, S_BUFSIZE, stdin);
-      printf("fgets:%s\n",s_buf);
+      s_buf[strlen(s_buf)] = '\0';
 
       //packet識別,送信
-//      packet_check(s_buf,sock);
-
+      packet_check(s_buf,sock);
 //先頭タグの確認
-      check_msg = analyze_header(s_buf);
-      
-      if( check_msg == QUIT){
-        //QUITメッセージをサーバに送る
-        QUIT_msg_send(sock);
-      }else{
-        //POSTメッセージ作成
-        POST_msg_send(sock,s_buf);
-      }
-
     }
 
 //受信
     if( FD_ISSET(sock,&readfds ) ){
-      // strsize = Recv(sock, r_buf, R_BUFSIZE-1, 0);
       //サーバが終了してたらエラー表示後、プログラムを終了する。
-      printf("Recv\n");
-
       //packet受信
-
       strsize = Recv(sock,r_buf,R_BUFSIZE-1,0);
-      printf("strsize:%d\n",strsize);
       if(strsize == 0){
         printf("\nserver error\n");
         exit(1);
       }
       //サーバが終了していないか確認
-      // server_error_check(strsize);
-      printf("Recv_2\n");
-
-      printf("%s",r_buf);
       fflush(stdout);
-
       //パケット識別、出力
       packet_check(r_buf,sock);
+    }
+  }
+}
 
+void Tag_remove_display(char *r_buf){
+  int i;
+  int strsize;
+
+  strsize = strlen(r_buf);
+  r_buf[strsize] = '\n';
+  for(i=5;i<strsize;i++){
+    printf("%c",r_buf[i]);
+  }
+  printf("\n");
+  fflush(stdout); /* バッファの内容を強制的に出力 */
+}
+
+void output_tab(int num){
+  int i;
+  if(num < 0){
+    printf("error:output_tab()\n");
+  }else{
+    for(i=0;i<num;i++){
+      printf("        ");
     }
   }
 }
@@ -126,7 +142,6 @@ void POST_msg_send(int sock,char *s_buf){
   create_packet(POST,s_buf);
   strsize = strlen(s_buf);
   Send(sock, s_buf,strsize,0); 
-  printf("make msg:%s\n",s_buf);
 }
 
 void server_error_check(int strsize){
@@ -137,33 +152,31 @@ void server_error_check(int strsize){
 }
 
 void MESG_msg_display(char *r_buf){
-  int strsize;
-  strsize = strlen(r_buf);
-  r_buf[strsize] = '\0';
-  printf("%s",r_buf);
-  fflush(stdout); /* バッファの内容を強制的に出力 */
+  output_tab(5);
+  Tag_remove_display(r_buf);
+}
+
+void LOGIN_msg_send(int sock){
+  char msg[15];
+  strcpy(msg,"--login--");
+  POST_msg_send(sock,msg);
 }
 
 void POST_msg_display(char *r_buf){
-  int strsize;
-  strsize = strlen(r_buf);
-  r_buf[strsize] = '\0';
-  printf("%s",r_buf);
-  fflush(stdout); /* バッファの内容を強制的に出力 */
+  output_tab(2);
+  Tag_remove_display(r_buf);
 }
 
 void Input_msg(char *s_buf){
   int Input_msg_check = 1;  
   fgets(s_buf, S_BUFSIZE, stdin);
-
-  
 }
+
 
 void packet_check(char *msg,int sock){
   int packet_mode;
   //届いたmsgのタグ確認
   packet_mode = analyze_header(msg);
-  printf("packet_mode:%d\n",packet_mode);
   switch (packet_mode)
   {
   case MESSAGE: 

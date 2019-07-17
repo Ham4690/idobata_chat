@@ -84,15 +84,15 @@ void create_packet(int type, char *message )
 
   switch( type ){
   case HELLO:
-    snprintf( message,4, "HELO");
+    snprintf( message,5, "HELO");
     break;
 
   case HERE:
-    snprintf( message,4, "HERE");
+    snprintf( message,5, "HERE");
     break;
 
   case JOIN:
-    add_header = (char *)malloc((strlen(message)+5) * sizeof(char));
+    add_header = (char *)malloc((strlen(message)+6) * sizeof(char));
     strcpy(add_header,"JOIN ");
     strncat(add_header,message,strlen(message));
     snprintf( message, MSGBUF_SIZE , "%s",add_header);
