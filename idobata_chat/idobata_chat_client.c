@@ -34,6 +34,7 @@ void idobata_chat_client(char* servername,int port_number,char *name)
   struct timeval tv;
 
   /* サーバに接続する */
+printf("%s\n",servername);
   sock = init_tcpclient(servername,port_number);
 
   printf("Hello. Welcome idobata_chat [%s].\n",name);

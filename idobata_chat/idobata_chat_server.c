@@ -1,6 +1,8 @@
 /*
   chat_util.c
 */
+
+#include "idobata.h"
 #include "mynet.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -180,7 +182,7 @@ static void send_to_others(int my_sock){
   temp = &server;
   while(1){
     if(temp->sock != my_sock && temp->sock != 0){
-      // Send(temp->sock, s_buf, strlen(s_buf),  MSG_NOSIGNAL);
+//       Send(temp->sock, s_buf, strlen(s_buf),  MSG_NOSIGNAL);
       Send(temp->sock, s_buf, strlen(s_buf),  SO_NOSIGPIPE);
 
     }
@@ -221,6 +223,7 @@ void JOIN_process(int sock_detect){
 void POST_process(int sock_detect){
   memset(s_buf,'\0',BUFSIZE);
   strcpy(s_buf, packet->data);
+  printf("%s\n",s_buf);
   create_message(sock_detect);  //[username] message 形式の文字列を作成.
   create_packet(MESSAGE, s_buf);  //MESG ヘッダーを上で作成した文字列に追加.
   send_to_others(sock_detect);  //発言者以外に送信.

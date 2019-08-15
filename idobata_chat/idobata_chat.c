@@ -37,7 +37,7 @@ void broadcast_enable(int sock);
 void signal_handle_set();
 void Select_mode(char mode,char *servername,int port_number,char *name);
 void HELO_msg_send(int sock,struct sockaddr_in broadcast_adrs);
-char check_HERE(int sock,struct sockaddr_in broadcast_adrs);
+char check_HERE(int sock,struct sockaddr_in broadcast_adrs,char *name);
 
 
 static void action_received(int signo);
@@ -61,9 +61,11 @@ int main(int argc, char *argv[])
   user_name_check(argv[1],name);
 
   //サーバの情報準備
-  set_sockaddr_in(&broadcast_adrs,servername,(in_port_t)port_number);
-  sock = init_udpclient();
+  //set_sockaddr_in(&broadcast_adrs,servername,(in_port_t)port_number);
+  //sock = init_udpclient();
 
+  set_sockaddr_in_broadcast(&broadcast_adrs,(in_port_t)port_number);
+  sock = init_udpclient();
   // ソケットをブロードキャスト可能にする 
   broadcast_enable(sock);
 
@@ -71,7 +73,7 @@ int main(int argc, char *argv[])
   signal_handle_set();
 
   //HELOパケット送信時のHEREパケットの受信確認
-  mode = check_HERE(sock,broadcast_adrs);
+  mode = check_HERE(sock,broadcast_adrs,servername);
 
   printf("%c\n",mode);
 
@@ -90,7 +92,7 @@ void argc_error_check(int arg_num ,char *argv[],int *port){
 	  printf("Set the username as an argument.\n");
 	  exit(EXIT_FAILURE);
   }
-  if(arg_num== 3){
+  if(arg_num == 3){
   	*port=atoi(argv[2]);
   }
 }
@@ -133,9 +135,8 @@ void Select_mode(char mode,char *servername,int port_number,char *name){
       break;
     case 'C':
     // {クライアントの関数へ}
-      idobata_chat_client(servername,port_number,name);
-
       printf("You are Client\n");
+      idobata_chat_client(servername,port_number,name);
       break;
     default:
       printf("switch():error\n");
@@ -150,7 +151,7 @@ void HELO_msg_send(int sock,struct sockaddr_in broadcast_adrs){
   Sendto(sock, HELO_packet, strsize, 0,(struct sockaddr *)&broadcast_adrs, sizeof(broadcast_adrs) );
 }
 
-char check_HERE(int sock,struct sockaddr_in broadcast_adrs){
+char check_HERE(int sock,struct sockaddr_in broadcast_adrs,char *name){
   struct sockaddr_in from_adrs;
   socklen_t from_len;
   int strsize;
@@ -162,13 +163,16 @@ char check_HERE(int sock,struct sockaddr_in broadcast_adrs){
 
   //time out set
   alarm(TIMEOUT_SEC);
+
   for(;;){
     from_len = sizeof(from_adrs);
     if((strsize=recvfrom(sock,r_buf,BUFSIZE-1,0,(struct sockaddr *)&from_adrs,&from_len)) == -1){
+
       if(errno == EINTR){
         if(count == 3){
           return 'S';
         }
+
         count +=1;
         printf("Wait_count:%d\n",count);
       //HELOパケット再送
@@ -178,8 +182,10 @@ char check_HERE(int sock,struct sockaddr_in broadcast_adrs){
       }
       //HEREをチェック
       if(analyze_header(r_buf) == HERE){
+	strcpy(name,inet_ntoa(from_adrs.sin_addr));	
         return 'C';
       }
+
     }
   }
 }
